@@ -21,6 +21,7 @@
   <p>
     <a href="https://flutter.dev/"><img src="https://img.shields.io/badge/Flutter-3.x-02569B?logo=flutter&logoColor=white" alt="Flutter"></a>
     <a href="LICENSE"><img src="https://img.shields.io/badge/License-AGPL--3.0-2ea44f" alt="AGPL-3.0 License"></a>
+    <img src="https://img.shields.io/badge/Open_Source-~99%25-2ea44f" alt="约 99% 开源">
     <img src="https://img.shields.io/badge/Reader_Engine-Flutter_Native-0ea5e9" alt="Flutter Native Reader Engine">
     <img src="https://img.shields.io/badge/Core_Reader-No_WebView-f97316" alt="Core Reader Without WebView">
     <a href="https://github.com/miloquinn/open-reading"><img src="https://img.shields.io/badge/GitHub-open--reading-181717?logo=github" alt="GitHub"></a>
@@ -30,27 +31,28 @@
 
 ---
 
-## 关于开源版本与后续开发
+## 关于开源
 
 开元阅读从最初发布到今天，得到了许多用户、开发者和朋友的关注、反馈与帮助。每一次 Issue、
 建议、测试和传播，都真实地推动了这个项目向前走。非常感谢大家一路以来的信任与支持。
 
-`v2.4.5` 是本仓库最后一个公开源码版本。从 `v2.4.6` 起，开元阅读的后续版本将转为闭源开发，
-但仍会继续通过 GitHub Releases 和[官方网站](https://open.xxread.top/download)提供正式安装包与
-更新说明。公共仓库今后主要用于保存历史源码、发布安装包和接收问题反馈。
+**除高级功能外，开元阅读全部开源，整体开源程度约 99%。** 构成这款阅读器的绝大部分内容都在
+本仓库里，以 [AGPL-3.0](LICENSE) 授权：本地书架与导入、Flutter 原生阅读引擎、排版与分页、
+四种翻页模式、主题与字体系统、EPUB / TXT 解析、书源引擎与 ORSP 实现、阅读统计、TTS 朗读、
+WebDAV 同步、以及各平台的适配代码。这些都可以自由阅读、使用、修改和 Fork。
 
-这是一个经过认真考虑、但并不轻松的决定。随着功能、平台适配和日常维护工作的持续增加，
-我希望把有限的时间更集中地投入到产品体验、稳定性和长期维护中。我理解这个变化可能会让
-重视开源的朋友失望，也尊重每个人继续使用历史版本、自行维护分支或选择其他项目的决定。
+未开源的只有两块：
 
-已经公开的内容不会被删除，也不会被追溯改变授权：`v2.4.5` 及以前版本的源码会继续保留，
-原有开源许可证持续有效，大家仍然可以学习、使用、Fork 和维护这些版本。感谢所有曾经为
-开元阅读提供帮助的人，也谢谢愿意继续陪伴它走下去的每一位用户。
+- **高级功能**：会员增值能力及其实现；
+- **后端服务**：账号、会员校验与购买验证的服务端。
 
-开元阅读是一款使用 Flutter 构建的电子书阅读器。本仓库保存 `v2.4.5` 及以前版本的开源源码。
-应用以本地文件阅读为基础，同时通过 Open Reading Source Protocol（ORSP）连接用户自行选择的
-公开内容服务。书籍、阅读进度、书签、阅读统计与大多数设置默认保存在当前设备；本地阅读
-不要求登录，也不依赖项目方的云端服务。
+这两块都不影响阅读本身。本仓库里的阅读器不需要登录、不依赖项目方的云端服务，
+断网也能完整使用。
+
+开元阅读是一款使用 Flutter 构建的电子书阅读器，以本地文件阅读为基础，同时通过
+Open Reading Source Protocol（ORSP）连接用户自行选择的公开内容服务。书籍、阅读进度、
+书签、阅读统计与大多数设置默认保存在当前设备。正式安装包通过 GitHub Releases 和
+[官方网站](https://open.xxread.top/download)发布。
 
 ## 当前功能
 
@@ -237,10 +239,9 @@ tool/              # 本地开发、官网发布校验与示例服务工具
 
 ## 参与贡献
 
-本仓库主要保存 `v2.4.5` 及以前的历史开源源码。针对这些历史版本的问题仍可提交 Issue；
-后续闭源版本不再通过本仓库接收功能 Pull Request。如果你希望继续维护或改进历史版本，
-欢迎遵循原有许可证进行 Fork。提交任何公开内容时，请避免包含 API Key、书籍文件、本地
-数据库或其他无权分发的材料。
+欢迎提交 Issue、Pull Request、翻译、平台适配和 ORSP 实现。提交任何公开内容时，
+请避免包含 API Key、书籍文件、本地数据库或其他无权分发的材料。开元阅读不提供也不托管
+盗版内容，ORSP 不得用于绕过访问控制或服务条款。
 
 ## 许可证
 

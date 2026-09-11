@@ -18,6 +18,7 @@
   <p>
     <a href="https://flutter.dev/"><img src="https://img.shields.io/badge/Flutter-3.x-02569B?logo=flutter&logoColor=white" alt="Flutter"></a>
     <a href="LICENSE"><img src="https://img.shields.io/badge/License-AGPL--3.0-2ea44f" alt="AGPL-3.0 License"></a>
+    <img src="https://img.shields.io/badge/Open_Source-~99%25-2ea44f" alt="About 99% open source">
     <img src="https://img.shields.io/badge/Reader_Engine-Flutter_Native-0ea5e9" alt="Flutter Native Reader Engine">
     <img src="https://img.shields.io/badge/Core_Reader-No_WebView-f97316" alt="Core Reader Without WebView">
     <a href="https://github.com/miloquinn/open-reading-source-protocol"><img src="https://img.shields.io/badge/Book_Source-Open_Protocol-7c3aed" alt="Open Reading Source Protocol"></a>
@@ -30,6 +31,25 @@ Open Reading is an open-source ebook reader built with Flutter. It keeps books,
 progress, bookmarks, and notes on the user's device by default while providing
 careful typography, TTS, annotations, reading statistics, optional AI tools,
 and community-extensible book sources.
+
+## Open source
+
+**Everything except the premium features is open source — roughly 99% of the
+project.** Almost all of what makes this a reader lives in this repository under
+[AGPL-3.0](LICENSE): the local library and importers, the Flutter-native reading
+engine, typography and pagination, the four page-turn modes, themes and fonts,
+EPUB/TXT parsing, the book-source engine and ORSP implementation, reading
+statistics, TTS, WebDAV sync, and the per-platform code. All of it is free to
+read, use, modify and fork.
+
+Only two parts are not open source:
+
+- **Premium features** — the paid membership capabilities and their implementation.
+- **Backend service** — the server handling accounts, membership checks and
+  purchase verification.
+
+Neither affects reading. The reader in this repository needs no sign-in, does not
+depend on our cloud, and works fully offline.
 
 ## Projects and websites
 

@@ -25,7 +25,7 @@
     <img src="https://img.shields.io/badge/Reader_Engine-Flutter_Native-0ea5e9" alt="Flutter Native Reader Engine">
     <img src="https://img.shields.io/badge/Core_Reader-No_WebView-f97316" alt="Core Reader Without WebView">
     <a href="https://github.com/miloquinn/origo-x"><img src="https://img.shields.io/badge/GitHub-origo--x-181717?logo=github" alt="GitHub"></a>
-    <a href="https://github.com/miloquinn/origo-source-protocol"><img src="https://img.shields.io/badge/Book_Source-ORSP_1.5-7c3aed" alt="Open Reading Source Protocol 1.5"></a>
+    <a href="https://github.com/miloquinn/origo-source-protocol"><img src="https://img.shields.io/badge/Book_Source-ORSP_1.5-7c3aed" alt="Origo Source Protocol 1.5"></a>
   </p>
 </div>
 
@@ -147,7 +147,7 @@ ORSP 1.5 让阅读器通过统一 HTTP 协议连接公开、无需登录的内�
 抓取规则、Cookie 或可执行脚本。协议定义发现文档、搜索、书籍详情、分页章节目录与章节正文，
 还可选提供推荐、分类和浏览能力，以及运营者、联系入口、内容许可与权利声明元数据。
 
-- 权威协议仓库：[miloquinn/open-reading-source-protocol](https://github.com/miloquinn/origo-source-protocol)
+- 权威协议仓库：[miloquinn/origo-source-protocol](https://github.com/miloquinn/origo-source-protocol)
 
 运行仓库内的本地示例书源：
 

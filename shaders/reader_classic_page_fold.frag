@@ -5,6 +5,8 @@ uniform vec2 uPosA;
 uniform vec2 uPosB;
 uniform float uBindingOnRight;
 uniform float uHasBackPage;
+uniform vec3 uPaperColor;
+uniform float uPhoneBackInkOpacity;
 uniform sampler2D uSourcePage;
 uniform sampler2D uBackPage;
 
@@ -85,7 +87,17 @@ vec4 sampleSource(vec2 canonical) {
 
 vec4 sampleFoldedBack(vec2 canonical) {
     if (uHasBackPage <= 0.5) {
-        return sampleSource(canonical);
+        vec4 mirroredInk = sampleSource(canonical);
+        // The single-page phone reader has no separately authored reverse
+        // texture. Treat its mirrored source as ink showing through opaque
+        // paper instead of exposing the full-strength front-page image.
+        mirroredInk.rgb = mix(
+            uPaperColor,
+            mirroredInk.rgb,
+            uPhoneBackInkOpacity
+        );
+        mirroredInk.a = 1.0;
+        return mirroredInk;
     }
     // curlTransform already reflects the visible folded polygon back into the
     // front texture. A separately authored reverse page needs one more
@@ -159,7 +171,8 @@ float sdSegment(vec2 p, vec2 a, vec2 b) {
 }
 
 void main() {
-    vec2 p = canonicalPoint(FlutterFragCoord().xy);
+    vec2 fragmentPoint = FlutterFragCoord().xy;
+    vec2 p = canonicalPoint(fragmentPoint);
     fragColor = vec4(0.0);
 
     if (all(equal(uPosA, vec2(0.0)))
@@ -175,13 +188,20 @@ void main() {
         uPosB
     );
     if (topDen == 0.0 || bottomDen == 0.0) {
-        fragColor = sampleSource(p);
+        if (fragmentPoint.x >= 0.0 && fragmentPoint.x <= uSize.x) {
+            fragColor = sampleSource(p);
+        }
         return;
     }
 
     if (uPosA.x == uSize.x && uPosA.y == 0.0
             && uPosB.x == uSize.x && uPosB.y == uSize.y) {
-        fragColor = sampleSource(p);
+        // A tablet leaf paints beyond its own bounds while curling across the
+        // binding. At the exact flat pose, keep that overflow transparent;
+        // otherwise the edge texels stretch across and flash on the sibling.
+        if (fragmentPoint.x >= 0.0 && fragmentPoint.x <= uSize.x) {
+            fragColor = sampleSource(p);
+        }
         return;
     }
 
@@ -315,6 +335,11 @@ void main() {
             polygon4
         )) {
         fragColor = sampleFoldedBack(transformedPos);
-        fragColor.rgb = mix(fragColor.rgb, vec3(1.0), 0.10);
+        // Only the phone's simulated paper reverse receives the soft surface
+        // highlight. A tablet spread provides a real adjacent-page texture,
+        // which must retain the same colors and opacity as a flat reader page.
+        if (uHasBackPage <= 0.5) {
+            fragColor.rgb = mix(fragColor.rgb, vec3(1.0), 0.10);
+        }
     }
 }

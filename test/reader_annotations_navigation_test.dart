@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:xxread/l10n/app_localizations.dart';
 import 'package:xxread/models/book_note.dart';
 import 'package:xxread/utils/reader_themes.dart';
+import 'package:xxread/widgets/app_menu.dart';
 import 'package:xxread/widgets/reader_navigation_sheet.dart';
 
 void main() {
@@ -82,11 +83,17 @@ void main() {
     );
     await tester.pumpAndSettle();
 
+    expect(
+      find.text('这里是我的批注', skipOffstage: false),
+      findsNothing,
+      reason: 'inactive annotation tab must not build on the catalog frame',
+    );
     await tester.tap(find.text('笔记'));
     await tester.pumpAndSettle();
     expect(find.text('这里是我的批注'), findsOneWidget);
     expect(find.text('第二章的页内高亮'), findsOneWidget);
     expect(find.text('旧手写记录'), findsNothing);
+
     expect(
       tester.getTopLeft(find.text('这里是我的批注')).dy,
       lessThan(tester.getTopLeft(find.text('第二章的页内高亮')).dy),
@@ -95,7 +102,7 @@ void main() {
     await tester.tap(find.text('这里是我的批注'));
     expect(selected?.annotationId, annotation.annotationId);
 
-    await tester.tap(find.byType(PopupMenuButton<String>).first);
+    await tester.tap(find.byType(AppPopupMenuButton<String>).first);
     await tester.pumpAndSettle();
     await tester.tap(find.text('删除'));
     await tester.pumpAndSettle();

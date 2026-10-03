@@ -21,10 +21,10 @@ class ReaderSystemUiController {
   static const preferenceKey = 'readerTopBarStyle';
   static const legacyPreferenceKey = 'readerShowSystemStatusBar';
   static const MethodChannel _androidChannel = MethodChannel(
-    'com.niki.xxread/fullscreen',
+    'org.example.xxread/fullscreen',
   );
   static const MethodChannel _iosReaderUiChannel = MethodChannel(
-    'com.niki.xxread/reader_ui',
+    'org.example.xxread/reader_ui',
   );
 
   static Future<ReaderTopBarStyle> loadPreference() async {

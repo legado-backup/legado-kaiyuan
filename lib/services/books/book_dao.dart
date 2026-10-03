@@ -3,6 +3,10 @@
 
 import 'dart:io';
 import 'package:flutter/foundation.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:sqflite_common_ffi/sqflite_ffi.dart';
+import 'package:xxread/services/books/book_storage_codec.dart';
+import 'package:xxread/services/books/book_storage_paths.dart';
 import 'package:xxread/models/book.dart';
 import 'package:xxread/services/core/database_service.dart';
 import 'package:xxread/services/books/book_image_map_service.dart';
@@ -10,12 +14,54 @@ import 'package:xxread/services/books/book_import_models.dart';
 import 'package:xxread/services/books/web_book_file_store.dart';
 
 class BookDao implements BookImportStore {
-  final _dbService = DatabaseService();
+  BookDao({
+    Future<Database> Function()? database,
+    Future<Directory> Function()? documentsDirectory,
+  }) : _databaseProvider = database ?? (() => DatabaseService().database),
+       _documentsDirectory =
+           documentsDirectory ?? getApplicationDocumentsDirectory;
+
+  final Future<Database> Function() _databaseProvider;
+  final Future<Directory> Function() _documentsDirectory;
+
+  Future<Book> _fromStorage(Map<String, dynamic> row) =>
+      bookFromStorageMap(row, documentsDirectory: _documentsDirectory);
+
+  Future<List<Book>> _fromStorageRows(List<Map<String, dynamic>> rows) =>
+      booksFromStorageMaps(rows, documentsDirectory: _documentsDirectory);
+
+  Future<Map<String, dynamic>> _toStorage(Book book) =>
+      bookToStorageMap(book, documentsDirectory: _documentsDirectory);
+
+  Future<String> _encodePath(String value) async {
+    if (kIsWeb) return value;
+    return BookStoragePaths((await _documentsDirectory()).path).encode(value);
+  }
+
+  static const List<String> _bookSummaryColumns = [
+    'id',
+    'title',
+    'author',
+    'filePath',
+    'format',
+    'currentPage',
+    'totalPages',
+    'reading_progress',
+    'importDate',
+    'file_modified_time',
+    'content_hash',
+    'cover_image_path',
+    'text_encoding',
+    'last_canonical_locator',
+    'last_rendered_locator',
+    'layout_signature',
+  ];
 
   Future<int> insertBook(Book book) async {
     try {
-      final db = await _dbService.database;
-      return await db.insert('books', book.toMap());
+      final db = await _databaseProvider();
+      final stored = await _toStorage(book);
+      return await db.insert('books', stored);
     } catch (e) {
       throw Exception('添加书籍失败: $e');
     }
@@ -23,41 +69,68 @@ class BookDao implements BookImportStore {
 
   Future<List<Book>> getAllBooks() async {
     try {
-      final db = await _dbService.database;
+      final db = await _databaseProvider();
       final List<Map<String, dynamic>> maps = await db.query(
         'books',
-        columns: [
-          'id',
-          'title',
-          'author',
-          'filePath',
-          'format',
-          'currentPage',
-          'totalPages',
-          'reading_progress',
-          'importDate',
-          'file_modified_time',
-          'content_hash',
-          'cover_image_path',
-          'text_encoding',
-          'last_canonical_locator',
-          'last_rendered_locator',
-          'layout_signature',
-          'storage_type',
-          'source_id',
-          'source_book_id',
-          'source_json',
-          'source_book_json',
-          'source_kind',
-          'source_locator',
-          'source_modified_time',
-        ],
+        columns: _bookSummaryColumns,
         orderBy: 'importDate DESC',
       );
-      return List.generate(maps.length, (i) => Book.fromMap(maps[i]));
+      return await _fromStorageRows(maps);
     } catch (e) {
       throw Exception('获取书籍列表失败: $e');
     }
+  }
+
+  /// 批量读取书籍摘要，并保持调用方给出的 ID 顺序。
+  ///
+  /// 首页最近阅读等列表不需要正文、目录和分页缓存字段；一次批量查询可避免
+  /// 对每本书单独往返数据库，也避免把大型缓存列载入内存。
+  Future<List<Book>> getBooksByIds(Iterable<int> bookIds) async {
+    final orderedIds = <int>[];
+    final seen = <int>{};
+    for (final id in bookIds) {
+      if (id > 0 && seen.add(id)) orderedIds.add(id);
+    }
+    if (orderedIds.isEmpty) return const [];
+
+    final db = await _databaseProvider();
+    final booksById = <int, Book>{};
+    const chunkSize = 500;
+    for (var start = 0; start < orderedIds.length; start += chunkSize) {
+      final end = start + chunkSize < orderedIds.length
+          ? start + chunkSize
+          : orderedIds.length;
+      final chunk = orderedIds.sublist(start, end);
+      final placeholders = List.filled(chunk.length, '?').join(',');
+      final rows = await db.query(
+        'books',
+        columns: _bookSummaryColumns,
+        where: 'id IN ($placeholders)',
+        whereArgs: chunk,
+      );
+      for (final book in await _fromStorageRows(rows)) {
+        final id = book.id;
+        if (id != null) booksById[id] = book;
+      }
+    }
+    return orderedIds
+        .map((id) => booksById[id])
+        .whereType<Book>()
+        .toList(growable: false);
+  }
+
+  /// 直接由 SQLite 返回有限的继续阅读候选，避免加载并排序整个书库。
+  Future<List<Book>> getRecentlyReadBooks({int limit = 6}) async {
+    final db = await _databaseProvider();
+    final safeLimit = limit.clamp(1, 100);
+    final rows = await db.query(
+      'books',
+      columns: _bookSummaryColumns,
+      where: 'currentPage > 0',
+      orderBy: 'currentPage DESC, importDate DESC',
+      limit: safeLimit,
+    );
+    return _fromStorageRows(rows);
   }
 
   Future<void> updateBookProgress(
@@ -66,7 +139,7 @@ class BookDao implements BookImportStore {
     double? readingProgress,
   }) async {
     try {
-      final db = await _dbService.database;
+      final db = await _databaseProvider();
       final values = <String, Object?>{'currentPage': currentPage};
       if (readingProgress != null) {
         values['reading_progress'] = readingProgress.clamp(0.0, 1.0);
@@ -87,7 +160,7 @@ class BookDao implements BookImportStore {
 
   Future<int> getBooksCount() async {
     try {
-      final db = await _dbService.database;
+      final db = await _databaseProvider();
       final result = await db.rawQuery('SELECT COUNT(*) as count FROM books');
       return (result.first['count'] as int?) ?? 0;
     } catch (e) {
@@ -97,14 +170,14 @@ class BookDao implements BookImportStore {
 
   Future<Book?> getBookById(int bookId) async {
     try {
-      final db = await _dbService.database;
+      final db = await _databaseProvider();
       final List<Map<String, dynamic>> maps = await db.query(
         'books',
         where: 'id = ?',
         whereArgs: [bookId],
       );
       if (maps.isNotEmpty) {
-        return Book.fromMap(maps.first);
+        return await _fromStorage(maps.first);
       }
       return null;
     } catch (e) {
@@ -112,22 +185,8 @@ class BookDao implements BookImportStore {
     }
   }
 
-  Future<Book?> getBookBySource({
-    required String sourceId,
-    required String sourceBookId,
-  }) async {
-    final db = await _dbService.database;
-    final maps = await db.query(
-      'books',
-      where: 'source_id = ? AND source_book_id = ?',
-      whereArgs: [sourceId, sourceBookId],
-      limit: 1,
-    );
-    return maps.isEmpty ? null : Book.fromMap(maps.first);
-  }
-
   Future<void> updateBookTotalPages(int bookId, int totalPages) async {
-    final db = await _dbService.database;
+    final db = await _databaseProvider();
     await db.update(
       'books',
       {'totalPages': totalPages},
@@ -138,16 +197,15 @@ class BookDao implements BookImportStore {
 
   Future<void> updateBook(Book book) async {
     try {
-      final db = await _dbService.database;
-      final result = await db.update(
+      final db = await _databaseProvider();
+      final stored = await _toStorage(book);
+      final updated = await db.update(
         'books',
-        book.toMap(),
+        stored,
         where: 'id = ?',
         whereArgs: [book.id],
       );
-      if (result == 0) {
-        throw Exception('书籍不存在');
-      }
+      if (updated != 1) throw StateError('书籍不存在');
     } catch (e) {
       throw Exception('更新书籍信息失败: $e');
     }
@@ -155,7 +213,7 @@ class BookDao implements BookImportStore {
 
   Future<void> deleteBook(int bookId) async {
     try {
-      final db = await _dbService.database;
+      final db = await _databaseProvider();
       final book = await getBookById(bookId);
 
       // 🗑️ 删除相关缓存
@@ -225,7 +283,7 @@ class BookDao implements BookImportStore {
   /// 获取旧分页缓存根目录路径。
   Future<Directory> _paginationCacheDir() async {
     // 使用 path_provider 获取文档目录，与旧 PaginationCacheService 同级
-    final db = await _dbService.database;
+    final db = await _databaseProvider();
     final dbPath = db.path;
     final parentDir = Directory(dbPath).parent;
     final cacheDir = Directory('${parentDir.path}/pagination_cache');
@@ -235,10 +293,10 @@ class BookDao implements BookImportStore {
   // 更新书籍文件路径 - 用于处理iOS沙盒路径变更
   Future<void> updateBookFilePath(int bookId, String newFilePath) async {
     try {
-      final db = await _dbService.database;
+      final db = await _databaseProvider();
       final result = await db.update(
         'books',
-        {'filePath': newFilePath},
+        {'filePath': await _encodePath(newFilePath)},
         where: 'id = ?',
         whereArgs: [bookId],
       );
@@ -253,10 +311,14 @@ class BookDao implements BookImportStore {
   // 更新书籍封面图片路径
   Future<void> updateBookCoverPath(int bookId, String? coverImagePath) async {
     try {
-      final db = await _dbService.database;
+      final db = await _databaseProvider();
       final result = await db.update(
         'books',
-        {'cover_image_path': coverImagePath},
+        {
+          'cover_image_path': coverImagePath == null
+              ? null
+              : await _encodePath(coverImagePath),
+        },
         where: 'id = ?',
         whereArgs: [bookId],
       );
@@ -276,14 +338,14 @@ class BookDao implements BookImportStore {
   @override
   Future<Book?> getBookByHash(String contentHash) async {
     try {
-      final db = await _dbService.database;
+      final db = await _databaseProvider();
       final List<Map<String, dynamic>> maps = await db.query(
         'books',
         where: 'content_hash = ?',
         whereArgs: [contentHash],
       );
       if (maps.isNotEmpty) {
-        return Book.fromMap(maps.first);
+        return await _fromStorage(maps.first);
       }
       return null;
     } catch (e) {
@@ -292,30 +354,15 @@ class BookDao implements BookImportStore {
   }
 
   @override
-  Future<Book?> getBookBySourceLocator({
-    required String sourceKind,
-    required String sourceLocator,
-  }) async {
-    final db = await _dbService.database;
-    final maps = await db.query(
-      'books',
-      where: 'source_kind = ? AND source_locator = ?',
-      whereArgs: [sourceKind, sourceLocator],
-      limit: 1,
-    );
-    return maps.isEmpty ? null : Book.fromMap(maps.first);
-  }
-
-  @override
   Future<Book?> getBookByFilePath(String filePath) async {
-    final db = await _dbService.database;
+    final db = await _databaseProvider();
     final maps = await db.query(
       'books',
-      where: 'filePath = ?',
-      whereArgs: [filePath],
+      where: 'filePath IN (?, ?)',
+      whereArgs: [await _encodePath(filePath), filePath],
       limit: 1,
     );
-    return maps.isEmpty ? null : Book.fromMap(maps.first);
+    return maps.isEmpty ? null : await _fromStorage(maps.first);
   }
 
   @override
@@ -329,7 +376,7 @@ class BookDao implements BookImportStore {
       );
     }
 
-    final db = await _dbService.database;
+    final db = await _databaseProvider();
     return db.transaction((txn) async {
       final maps = await txn.query(
         'books',
@@ -338,10 +385,10 @@ class BookDao implements BookImportStore {
         limit: 1,
       );
       if (maps.isNotEmpty) {
-        return BookInsertDecision.existing(Book.fromMap(maps.first));
+        return BookInsertDecision.existing(await _fromStorage(maps.first));
       }
 
-      final id = await txn.insert('books', book.toMap());
+      final id = await txn.insert('books', await _toStorage(book));
       return BookInsertDecision.inserted(book.copyWith(id: id));
     });
   }
@@ -350,16 +397,8 @@ class BookDao implements BookImportStore {
   Future<Book> updateBookStorageLocation({
     required Book book,
     required String filePath,
-    required String sourceKind,
-    required String sourceLocator,
-    required int? sourceModifiedTime,
   }) async {
-    final updated = book.copyWith(
-      filePath: filePath,
-      sourceKind: sourceKind,
-      sourceLocator: sourceLocator,
-      sourceModifiedTime: sourceModifiedTime,
-    );
+    final updated = book.copyWith(filePath: filePath);
     await updateBook(updated);
     return updated;
   }
@@ -380,7 +419,7 @@ class BookDao implements BookImportStore {
     double? readingProgress,
   }) async {
     try {
-      final db = await _dbService.database;
+      final db = await _databaseProvider();
       final updates = <String, dynamic>{
         'last_canonical_locator': canonicalJson,
         'currentPage': currentPage,
@@ -406,5 +445,52 @@ class BookDao implements BookImportStore {
     } catch (e) {
       throw Exception('更新 CanonicalLocator 进度失败: $e');
     }
+  }
+
+  /// Replaces every persisted component of the reading position.
+  ///
+  /// Unlike [updateBookCanonicalLocator], this can intentionally clear a
+  /// canonical locator when local content changes.
+  Future<void> replaceBookProgress(
+    int bookId, {
+    required int currentPage,
+    required double? readingProgress,
+    required String? canonicalLocator,
+    int? totalPages,
+  }) async {
+    final db = await _databaseProvider();
+    final values = <String, Object?>{
+      'currentPage': currentPage,
+      'reading_progress': readingProgress?.clamp(0.0, 1.0),
+      'last_canonical_locator': canonicalLocator,
+      'last_rendered_locator': null,
+      'layout_signature': null,
+      'totalPages': ?totalPages,
+    };
+    final result = await db.update(
+      'books',
+      values,
+      where: 'id = ?',
+      whereArgs: [bookId],
+    );
+    if (result == 0) throw Exception('书籍不存在');
+  }
+
+  /// Invalidates layout-dependent locators after a text revision could not be
+  /// mapped exactly. The normalized percentage remains available as a safe
+  /// fallback and no synthetic reading event is emitted.
+  Future<void> clearBookLocatorAfterContentChange(int bookId) async {
+    final db = await _databaseProvider();
+    final result = await db.update(
+      'books',
+      {
+        'last_canonical_locator': null,
+        'last_rendered_locator': null,
+        'layout_signature': null,
+      },
+      where: 'id = ?',
+      whereArgs: [bookId],
+    );
+    if (result == 0) throw Exception('书籍不存在');
   }
 }

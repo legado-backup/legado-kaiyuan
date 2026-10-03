@@ -8,7 +8,7 @@ class ReaderVolumeKeyController {
 
   static const preferenceKey = 'enableVolumeKeyTurn';
   static const MethodChannel _androidChannel = MethodChannel(
-    'com.niki.xxread/reader_keys',
+    'org.example.xxread/reader_keys',
   );
 
   static Object? _activeOwner;
@@ -32,7 +32,7 @@ class ReaderVolumeKeyController {
     _onPreviousPage = onPreviousPage;
 
     final prefs = await SharedPreferences.getInstance();
-    final preferenceEnabled = prefs.getBool(preferenceKey) ?? true;
+    final preferenceEnabled = prefs.getBool(preferenceKey) ?? false;
     final enabled = preferenceEnabled && pageTurningAvailable;
     if (!_supportsVolumePaging ||
         generation != _generation ||

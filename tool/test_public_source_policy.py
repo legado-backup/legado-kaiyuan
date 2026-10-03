@@ -45,6 +45,10 @@ class PublicSourcePolicyTest(unittest.TestCase):
         self.assertTrue(self.check_file('id_ed25519', '-----BEGIN ' + 'PRIVATE KEY-----'))
         self.assertTrue(self.check_file('ios/Client.swift', 'let session = URLSession.shared'))
 
+    def test_rejects_truncated_action_revision(self):
+        self.assertTrue(self.check_file('.github/workflows/ci.yml', 'steps:\n  - uses: owner/action@' + 'a' * 38))
+        self.assertFalse(self.check_file('.github/workflows/ci.yml', 'steps:\n  - uses: owner/action@' + 'a' * 40))
+
     def test_allows_basic_reader_code_and_public_release_link(self):
         self.assertFalse(self.check_file('lib/reader.dart', 'class LocalReader {}'))
         self.assertFalse(self.check_file('README.md', 'https://github.com/miloquinn/origo-x/releases'))

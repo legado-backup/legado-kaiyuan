@@ -92,6 +92,10 @@ def check(paths: list[str], manifest: dict) -> list[str]:
         if path.suffix in {'.swift', '.kt', '.java', '.js', '.cpp'} and not verified_third_party:
             if re.search(r'URLSession|HttpURLConnection|OkHttpClient|java\.net\.(?:Socket|URL)|fetch\s*\(|XMLHttpRequest|WebSocket', content):
                 findings.append(f'{name}: native backend network implementation')
+        if name.startswith('.github/workflows/') and path.suffix in {'.yml', '.yaml'}:
+            for revision in re.findall(r'uses:\s*[A-Za-z0-9_./-]+@(\S+)', content):
+                if not re.fullmatch(r'[0-9a-f]{40}', revision):
+                    findings.append(f'{name}: invalid immutable action revision')
         if name == 'pubspec.yaml':
             for package in FORBIDDEN_DEPENDENCIES:
                 if re.search(rf'^  {re.escape(package)}:', content, re.M):
